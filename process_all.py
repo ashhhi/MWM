@@ -1,18 +1,18 @@
 import numpy as np
-
+from decimal import Decimal
 from dao import MysqlDb
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
-raw_table_name = 'Raw_20231202'
+raw_table_name = 'Raw_20240205'
+gravity = 9.81
 
 # 按时间升序排列
-def sorted_time(time_arr, data_arr):
-    # 使用 zip() 函数将时间数组和数据数组打包成元组列表，并按照时间进行排序
-    sorted_data = [x for _, x in sorted(zip(time_arr, data_arr))]
-    # 按照时间进行排序后的结果
-    sorted_time = sorted(time_arr)
-    return sorted_time, sorted_data
+def sorted_id(time_ms, time_s, data_arr, id):
+    zipped = zip(time_ms, time_s, data_arr, id)
+    sorted_zipped = sorted(zipped, key=lambda x: x[3])
+    time_ms, time_s, data_arr, id = zip(*sorted_zipped)
+    return time_ms, time_s, data_arr, id
 
 
 def Visual(Time, Data, label_y, save_path, label_x='Time (ms)'):
@@ -47,9 +47,10 @@ if __name__ == '__main__':
 
     for session in session_list:
         sessionid = session['sessionid']
-        data = mysqlconn.select(f'select * from Raw_20231202 where sessionId =\'{sessionid}\'')
-        print(len(data))
-        Time = []
+        data = mysqlconn.select(f'select * from {raw_table_name} where sessionId =\'{sessionid}\'')
+        print(sessionid, "length", len(data))
+        Time_ms = []
+        Time_s = []
         AcceX = []
         AcceY = []
         AcceZ = []
@@ -58,26 +59,34 @@ if __name__ == '__main__':
         GyroY = []
         GyroZ = []
         Gyro = []
+        id = []
         for item in data:
-            Time.append(item['Time_ms'] + item['Time_s'] * 1000)
-            AcceX.append(item['AcceX'])
-            AcceY.append(item['AcceY'])
-            AcceZ.append(item['AcceZ'])
-            GyroX.append(item['GyroX'])
-            GyroY.append(item['GyroY'])
-            GyroZ.append(item['GyroZ'])
-            Acce.append(float(item['AcceX']) + float(item['AcceY']) + float(item['AcceZ']))
-            Gyro.append(float(item['GyroX']) + float(item['GyroY']) + float(item['GyroZ']))
+            Time_ms.append(item['Time_ms'])
+            Time_s.append(item['Time_s'])
+            AcceX.append(float(item['AcceX']) * gravity)
+            AcceY.append(float(item['AcceY']) * gravity)
+            AcceZ.append(float(item['AcceZ']) * gravity)
+            GyroX.append(float(item['GyroX']) * gravity)
+            GyroY.append(float(item['GyroY']) * gravity)
+            GyroZ.append(float(item['GyroZ'])    * gravity)
+            id.append(item['id'])
+            Acce.append((float(item['AcceX']) + float(item['AcceY']) + float(item['AcceZ'])) * gravity)
+            Gyro.append((float(item['GyroX']) + float(item['GyroY']) + float(item['GyroZ'])) * gravity)
 
         '''1. 去除太短的数据'''
         if len(Acce) < 5000:
             continue
 
-        '''2. 按时间升序排列，数据库里时间是打乱的'''
-        Time_ms, Acce = sorted_time(Time, Acce)
+        '''2. 按id升序排列，防止数据库里是打乱的数据'''
+        Time_ms, Time_s, Acce, id = sorted_id(Time_ms, Time_s, Acce, id)
 
+        cnt_minute = 0
+        Time = []
+        for i in range(len(Time_s)):
+            if Time_s[i] == 0 and i != 0 and Time_s[i-1] > 0:
+                cnt_minute += 1
+            Time.append((Time_s[i] + cnt_minute * 60 - Time_s[0]) * 1000 + Time_ms[i])
         Acce = np.array(Acce)
-        Gyro = np.array(Gyro)
 
         Visual(Time, Acce, 'Acce', f'pic/origin/{sessionid}')
 
@@ -91,14 +100,13 @@ if __name__ == '__main__':
 
         Visual(Time, Acce, 'Acce', f'pic/without_threshold/{sessionid}')
 
-        '''求正负峰值的平均值，拿到噪声大概的threshold'''
-
+        '''设置threshold'''
         # pos_avarage = Acce[Acce_pos_peaks].mean()
         # neg_average = Acce[Acce_neg_peaks].mean()
         # pos_threshold = pos_avarage
         # neg_threshold = neg_average
-        pos_threshold = 100
-        neg_threshold = -100
+        pos_threshold = 50
+        neg_threshold = -30
         print('pos_threshold', pos_threshold, 'neg_threshold', neg_threshold)
         Acce[(Acce < pos_threshold) & (Acce > neg_threshold)] = 0
 
