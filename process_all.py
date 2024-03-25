@@ -48,7 +48,6 @@ if __name__ == '__main__':
     for session in session_list:
         sessionid = session['sessionid']
         data = mysqlconn.select(f'select * from {raw_table_name} where sessionId =\'{sessionid}\'')
-        print(sessionid, "length", len(data))
         Time_ms = []
         Time_s = []
         AcceX = []
