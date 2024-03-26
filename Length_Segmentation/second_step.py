@@ -29,7 +29,8 @@ for sessionId in session_counts.keys():
         Acce.append((float(item['AcceX']) + float(item['AcceY']) + float(item['AcceZ'])) * gravity)
     peak, valley = max(Acce), min(Acce)
     record = mysqlconn.select(f'select peak, valley, level from amplitude_analyse where sessionid = \'{sessionId}\'')
-    if not record:
+    print(record)
+    if record:
         new_peak = max(peak, record['peak'])
         new_valley = min(valley, record['valley'])
         if new_peak > 100 or new_valley < -100:
