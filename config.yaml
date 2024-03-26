@@ -1,0 +1,6 @@
+# Database Info
+dbhost: 'localhost'
+dbport: 3306
+dbname: 'snmmpdb'
+dbuser: 'root'
+dbpwd: '916933425'

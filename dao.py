@@ -1,7 +1,10 @@
-import pymysql, yaml
+import pymysql, yaml, os
 from DBUtils.PooledDB import PooledDB
+
+
+config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
 # 读取 YAML 文件
-with open('config.yaml', 'r') as file:
+with open(config_path, 'r') as file:
     data = yaml.load(file, Loader=yaml.FullLoader)
     dbhost = data['dbhost']
     dbport = data['dbport']
@@ -76,5 +79,16 @@ class MysqlDb:
             self.conn.commit()
         except Exception as e:
             print("mysql更新/新增/删除操作出现错误：{}".format(e))
+            # 回滚所有更改
+            self.conn.rollback()
+
+    def page_select(self, table, page_size=5000000, offset=0):
+        try:
+            # 大数据查询
+            self.cur.execute(f"SELECT * FROM {table} order by id asc LIMIT {page_size} OFFSET {offset} ")
+            data = self.cur.fetchall()
+            return data
+        except Exception as e:
+            print("mysql查找操作出现错误：{}".format(e))
             # 回滚所有更改
             self.conn.rollback()
